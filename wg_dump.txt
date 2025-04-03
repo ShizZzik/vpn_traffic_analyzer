@@ -1,0 +1,2 @@
+wg0     KSfRyfd2TzmDYarim12zheSyleuUgMYoNtcegecS33k=    2Hs9mZx3sFUwB1+KOh30CkGjtWxKHFkyPa639recBVo=    46212   4       10      50      90      123     499646768       1629417620      1990041557      1819320591      off
+wg0     /kPB4ELRf5MmbT+2KHtFP4V117P3iGbPRamKNrv7UXM=    WzPKvhg8uKJUPw0sD+qu+C6HOWjHjRoV+vutG8Vddbg=    37.23.57.197:38127      10.8.1.2/32     1743603943      5175056 40641811        off
