@@ -1,8 +1,22 @@
-from flask import Flask, render_template, jsonify
+from flask import Flask, render_template, jsonify, request
 import json
 from datetime import datetime
+import os
+import re  # Для очистки clientId
 
 app = Flask(__name__)
+UPLOAD_FOLDER = 'static/avatars'
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+
+if not os.path.exists(UPLOAD_FOLDER):
+    os.makedirs(UPLOAD_FOLDER)
+
+def format_bytes(bytes):
+    if bytes == 0:
+        return "0 B"
+    units = ["B", "KiB", "MiB", "GiB"]
+    i = int(min(len(units) - 1, max(0, (bytes.bit_length() - 1) // 10)))
+    return f"{bytes / (1024 ** i):.2f} {units[i]}"
 
 def parse_wg_dump():
     print("Чтение wg_dump.txt")
@@ -19,21 +33,21 @@ def parse_wg_dump():
     
     peers = {}
     for line in lines:
-        parts = line.strip().split()  # Разделяем по пробелам, как в твоём примере
-        if len(parts) < 9:  # Минимум 9 полей в твоём формате
+        parts = line.strip().split()
+        if len(parts) < 9:
             print(f"Пропущена строка с недостаточным количеством полей: {line}")
             continue
         try:
-            pubkey = parts[1]  # Публичный ключ клиента
-            endpoint = parts[3]  # Эндпоинт
-            allowed_ips = parts[4]  # Разрешённые IP
-            latest_handshake = parts[5]  # Время последнего handshake
-            transfer_rx = parts[6]  # Принятые данные
-            transfer_tx = parts[7]  # Отправленные данные
+            pubkey = parts[1]
+            endpoint = parts[3]
+            allowed_ips = parts[4]
+            latest_handshake = parts[5]
+            transfer_rx = parts[6]
+            transfer_tx = parts[7]
             
             peers[pubkey] = {
                 "endpoint": endpoint,
-                "allowed_ips": allowed_ips,
+                "allowed_ips": allowed_ips.split('/')[0],
                 "latest_handshake": int(latest_handshake) if latest_handshake != "0" else 0,
                 "transfer_rx": int(transfer_rx),
                 "transfer_tx": int(transfer_tx)
@@ -96,13 +110,14 @@ def combine_data():
                 handshake_str = "Нет активности"
             
             combined.append({
+                "clientId": client_id,
                 "clientName": user_data.get("clientName", "Unknown"),
-                "allowedIps": user_data.get("allowedIps", ""),
+                "allowedIps": wg_info.get("allowed_ips", user_data.get("allowedIps", "N/A").split('/')[0]),
                 "dataReceived": user_data.get("dataReceived", "0 B"),
                 "dataSent": user_data.get("dataSent", "0 B"),
                 "latestHandshake": handshake_str,
-                "transferRx": wg_info.get("transfer_rx", 0),
-                "transferTx": wg_info.get("transfer_tx", 0),
+                "transferRx": format_bytes(wg_info.get("transfer_rx", 0)),
+                "transferTx": format_bytes(wg_info.get("transfer_tx", 0)),
                 "endpoint": wg_info.get("endpoint", "N/A")
             })
         except Exception as e:
@@ -122,6 +137,46 @@ def traffic_data():
     except Exception as e:
         print(f"Ошибка в traffic_data: {e}")
         return jsonify({"error": str(e)}), 500
+
+@app.route("/user/<client_name>")
+def user_page(client_name):
+    data = combine_data()
+    user = next((u for u in data if u["clientName"] == client_name), None)
+    if not user:
+        return "Пользователь не найден", 404
+    return render_template("user.html", user=user)
+
+@app.route("/upload_avatar/<client_name>", methods=["POST"])
+def upload_avatar(client_name):
+    if "avatar" not in request.files:
+        print(f"Ошибка: файл не выбран для {client_name}")
+        return jsonify({"error": "Файл не выбран"}), 400
+    file = request.files["avatar"]
+    if file.filename == "":
+        print(f"Ошибка: пустое имя файла для {client_name}")
+        return jsonify({"error": "Файл не выбран"}), 400
+    if file:
+        data = combine_data()
+        user = next((u for u in data if u["clientName"] == client_name), None)
+        if not user:
+            print(f"Ошибка: пользователь {client_name} не найден")
+            return jsonify({"error": "Пользователь не найден"}), 404
+        
+        # Очищаем clientId от недопустимых символов
+        safe_client_id = re.sub(r'[^a-zA-Z0-9_-]', '', user['clientId'])
+        filename = f"{safe_client_id}.png"
+        file_path = os.path.join(app.config["UPLOAD_FOLDER"], filename)
+        
+        print(f"Попытка сохранить аватар для {client_name} как {file_path}")
+        try:
+            file.save(file_path)
+            print(f"Аватар успешно сохранён: {file_path}")
+            return jsonify({"message": "Аватар успешно загружен"}), 200
+        except Exception as e:
+            print(f"Ошибка сохранения файла {file_path}: {e}")
+            return jsonify({"error": f"Ошибка сохранения файла: {str(e)}"}), 500
+    print(f"Неизвестная ошибка загрузки для {client_name}")
+    return jsonify({"error": "Ошибка загрузки"}), 500
 
 if __name__ == "__main__":
     app.run(debug=True, host="0.0.0.0", port=5000)
