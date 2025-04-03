@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>VPN Traffic Analyzer</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <h1>Анализ трафика WireGuard VPN</h1>
+    <div id="error" style="color: red;"></div>
+    <table id="trafficTable">
+        <thead>
+            <tr>
+                <th>Имя клиента</th>
+                <th>IP</th>
+                <th>Принято (JSON)</th>
+                <th>Отправлено (JSON)</th>
+                <th>Принято (wg)</th>
+                <th>Отправлено (wg)</th>
+                <th>Последний handshake</th>
+                <th>Эндпоинт</th>
+            </tr>
+        </thead>
+        <tbody id="trafficBody"></tbody>
+    </table>
+    <script src="/static/script.js"></script>
+</body>
+</html>
