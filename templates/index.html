@@ -9,6 +9,10 @@
 <body>
     <h1>Анализ трафика WireGuard VPN</h1>
     <button id="themeToggle" class="theme-btn">Тёмная тема</button>
+    <div class="column-toggles">
+        <label><input type="checkbox" id="toggleDataReceived"> Принято (JSON)</label>
+        <label><input type="checkbox" id="toggleDataSent"> Отправлено (JSON)</label>
+    </div>
     <div id="error" style="color: red;"></div>
     <table id="trafficTable">
         <thead>
@@ -16,11 +20,11 @@
                 <th data-sort="avatar"><i class="fas fa-user-circle"></i> Аватар</th>
                 <th data-sort="clientName"><i class="fas fa-user"></i> Имя клиента</th>
                 <th data-sort="allowedIps"><i class="fas fa-network-wired"></i> IP</th>
-                <th data-sort="dataReceived"><i class="fas fa-download"></i> Принято (JSON)</th>
-                <th data-sort="dataSent"><i class="fas fa-upload"></i> Отправлено (JSON)</th>
+                <th data-sort="dataReceived" class="toggleable" data-column="dataReceived"><i class="fas fa-download"></i> Принято (JSON)</th>
+                <th data-sort="dataSent" class="toggleable" data-column="dataSent"><i class="fas fa-upload"></i> Отправлено (JSON)</th>
                 <th data-sort="transferRx"><i class="fas fa-arrow-down"></i> Принято (wg)</th>
                 <th data-sort="transferTx"><i class="fas fa-arrow-up"></i> Отправлено (wg)</th>
-                <th data-sort="latestHandshake"><i class="fas fa-handshake"></i> Последний handshake</th>
+                <th data-sort="latestHandshakeTimestamp"><i class="fas fa-handshake"></i> Последний handshake</th>
                 <th data-sort="endpoint"><i class="fas fa-server"></i> Эндпоинт</th>
             </tr>
         </thead>
