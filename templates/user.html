@@ -2,34 +2,131 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>VPN Traffic Analyzer</title>
+    <title>{{ user.clientName }} - Настройки</title>
     <link rel="stylesheet" href="/static/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
 </head>
 <body>
-    <h1>Анализ трафика WireGuard VPN</h1>
-    <button id="themeToggle" class="theme-btn">Тёмная тема</button>
-    <div class="column-toggles">
-        <label><input type="checkbox" id="toggleDataReceived"> Принято (JSON)</label>
-        <label><input type="checkbox" id="toggleDataSent"> Отправлено (JSON)</label>
+    <h1><i class="fas fa-user-cog"></i> Настройки пользователя: <span id="clientName">{{ user.clientName }}</span></h1>
+    <button id="themeToggle" class="theme-btn">Светлая тема</button>
+    <div class="user-profile">
+        <div class="avatar-wrapper">
+            <img src="/static/avatars/{{ user.safeClientId }}.png" alt="Аватар" class="avatar" onerror="this.src='/static/avatars/default.png'">
+            <input type="file" id="avatarInput" name="avatar" accept="image/*" style="display: none;">
+        </div>
+        <ul class="user-details">
+            <li><i class="fas fa-network-wired"></i> <strong>IP:</strong> <span class="ip-address">{{ user.allowedIps }}</span></li>
+            <li><i class="fas fa-handshake"></i> <strong>Последний handshake:</strong> 
+                <span id="latestHandshake" data-timestamp="{{ user.latestHandshakeTimestamp }}"></span>
+            </li>
+            <li><i class="fas fa-server"></i> <strong>Эндпоинт:</strong> 
+                {% if ':' in user.endpoint %}
+                    <span class="ip-address">{{ user.endpoint.split(':')[0] }}</span>:<span class="endpoint-port">{{ user.endpoint.split(':')[1] }}</span>
+                {% else %}
+                    {{ user.endpoint }}
+                {% endif %}
+            </li>
+            <li><i class="fas fa-exchange-alt"></i> <strong>Трафик (wg):</strong> 
+                <span class="traffic-in">Принято: {{ user.transferRx }}</span>, 
+                <span class="traffic-out">Отправлено: {{ user.transferTx }}</span>
+            </li>
+        </ul>
     </div>
-    <div id="error" style="color: red;"></div>
-    <table id="trafficTable">
-        <thead>
-            <tr>
-                <th data-sort="avatar"><i class="fas fa-user-circle"></i> Аватар</th>
-                <th data-sort="clientName"><i class="fas fa-user"></i> Имя клиента</th>
-                <th data-sort="allowedIps"><i class="fas fa-network-wired"></i> IP</th>
-                <th data-sort="dataReceived" class="toggleable" data-column="dataReceived"><i class="fas fa-download"></i> Принято (JSON)</th>
-                <th data-sort="dataSent" class="toggleable" data-column="dataSent"><i class="fas fa-upload"></i> Отправлено (JSON)</th>
-                <th data-sort="transferRx"><i class="fas fa-arrow-down"></i> Принято (wg)</th>
-                <th data-sort="transferTx"><i class="fas fa-arrow-up"></i> Отправлено (wg)</th>
-                <th data-sort="latestHandshakeTimestamp"><i class="fas fa-handshake"></i> Последний handshake</th>
-                <th data-sort="endpoint"><i class="fas fa-server"></i> Эндпоинт</th>
-            </tr>
-        </thead>
-        <tbody id="trafficBody"></tbody>
-    </table>
-    <script src="/static/script.js"></script>
+    <div class="settings">
+        <h2><i class="fas fa-cogs"></i> Настройки</h2>
+        <form id="settingsForm">
+            <label><i class="fas fa-user"></i> Имя клиента: 
+                <input type="text" id="clientNameInput" value="{{ user.clientName }}">
+            </label>
+            <label><i class="fas fa-toggle-on"></i> Активен: 
+                <input type="checkbox" id="activeSwitch" class="ios-switch" checked>
+                <span class="switch-label"></span>
+            </label>
+            <button type="submit"><i class="fas fa-save"></i> Сохранить</button>
+        </form>
+    </div>
+    <div class="center-link">
+        <a href="/" class="back-link"><i class="fas fa-arrow-left"></i> Назад к списку</a>
+    </div>
+
+    <script>
+        const themeToggle = document.getElementById("themeToggle");
+        let currentTheme = localStorage.getItem("theme") || "dark";  // Тёмная тема по умолчанию
+        document.body.classList.toggle("dark-theme", currentTheme === "dark");
+        themeToggle.textContent = currentTheme === "dark" ? "Светлая тема" : "Тёмная тема";
+
+        themeToggle.addEventListener("click", () => {
+            currentTheme = currentTheme === "light" ? "dark" : "light";
+            document.body.classList.toggle("dark-theme");
+            themeToggle.textContent = currentTheme === "dark" ? "Светлая тема" : "Тёмная тема";
+            localStorage.setItem("theme", currentTheme);
+        });
+
+        const avatarImg = document.querySelector(".avatar");
+        const avatarInput = document.getElementById("avatarInput");
+        avatarImg.addEventListener("click", () => avatarInput.click());
+        avatarInput.addEventListener("change", function() {
+            const formData = new FormData();
+            formData.append("avatar", this.files[0]);
+            fetch(`/upload_avatar/{{ user.clientName }}`, {
+                method: "POST",
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.message) {
+                    alert(data.message);
+                    location.reload();
+                } else {
+                    alert(data.error);
+                }
+            })
+            .catch(error => alert("Ошибка загрузки: " + error));
+        });
+
+        document.getElementById("settingsForm").addEventListener("submit", function(e) {
+            e.preventDefault();
+            const newName = document.getElementById("clientNameInput").value;
+            fetch(`/update_client_name/{{ user.clientName }}`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ clientName: newName })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.message) {
+                    alert(data.message);
+                    document.getElementById("clientName").textContent = data.newName;
+                    document.title = `${data.newName} - Настройки`;
+                } else {
+                    alert(data.error);
+                }
+            })
+            .catch(error => alert("Ошибка сохранения: " + error));
+        });
+
+        function updateHandshake() {
+            const handshakeEl = document.getElementById("latestHandshake");
+            const timestamp = parseInt(handshakeEl.dataset.timestamp);
+            if (timestamp === 0) {
+                handshakeEl.textContent = "Нет активности";
+                return;
+            }
+            const now = Math.floor(Date.now() / 1000);
+            const delta = now - timestamp;
+            const hours = Math.floor(delta / 3600);
+            const minutes = Math.floor((delta % 3600) / 60);
+            const seconds = delta % 60;
+            handshakeEl.innerHTML = `<span class="time-hours">${hours}h</span>, <span class="time-minutes">${minutes}m</span>, <span class="time-seconds">${seconds}s ago</span>`;
+            if (delta < 900) {  // 15 минут
+                document.querySelector(".avatar").classList.add("online");
+                document.getElementById("activeSwitch").classList.add("recent");
+            } else {
+                document.querySelector(".avatar").classList.remove("online");
+                document.getElementById("activeSwitch").classList.remove("recent");
+            }
+        }
+        updateHandshake();
+    </script>
 </body>
 </html>
